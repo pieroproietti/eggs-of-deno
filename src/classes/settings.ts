@@ -5,12 +5,17 @@ export interface IEggsConfig {
   snapshot_dir: string;
   snapshot_prefix: string;
   compression: "gzip" | "xz" | "zstd";
+  // AGGIUNGI QUESTI CAMPI MANCANTI:
+  make_efi?: boolean;       // Supporto UEFI
+  make_isohybrid?: boolean; // Supporto Hybrid Boot
 }
 
 const DEFAULT_CONFIG: IEggsConfig = {
   snapshot_dir: "eggs",
-  snapshot_prefix: "eggs",
-  compression: "gzip"
+  snapshot_prefix: "egg-of_",
+  compression: "gzip",
+  make_efi: true,       // Default true
+  make_isohybrid: true  // Default true
 };
 
 export class Settings {

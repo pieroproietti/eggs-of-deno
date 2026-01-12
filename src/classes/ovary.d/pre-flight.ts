@@ -1,0 +1,72 @@
+// src/classes/ovary.d/pre-flight.ts
+import { IEggsConfig } from "../settings.ts";
+import { Constants } from "../constants.ts";
+import { Utils } from "../utils.ts";
+import { IDistroInfo } from "../distro.ts";
+import { path, ensureDir, exists } from "../../deps.ts";
+
+export class PreFlight {
+  private config: IEggsConfig;
+  private distro: IDistroInfo;
+
+  constructor(config: IEggsConfig, distro: IDistroInfo) {
+    this.config = config;
+    this.distro = distro;
+  }
+
+  /**
+   * Prepara le cartelle e copia i file di avvio (kernel/initrd)
+   */
+  async prepare(options: any) {
+    Utils.title("🛫 Pre-Flight Checks");
+
+    // 1. Crea directory di lavoro
+    const workDir = path.join(Constants.NEST, ".mnt");
+    const isoDir = path.join(Constants.NEST, "iso");
+    await ensureDir(workDir);
+    await ensureDir(isoDir);
+
+    // 2. Trova e Copia Kernel
+    await this.handleKernel(isoDir);
+
+    // 3. Gestione Utenti (se non è clone)
+    if (!options.clone) {
+        await this.cleanUsers(workDir);
+    }
+  }
+
+  private async handleKernel(isoDest: string) {
+    console.log("-> Searching for Kernel...");
+    
+    // Logica semplificata: prende il vmlinuz corrente
+    // In futuro: logica complessa per Alpine/Arch come nel tuo codice originale
+    try {
+        const uname = (await Utils.run("uname", ["-r"])).out;
+        const vmlinuzSrc = `/boot/vmlinuz-${uname}`;
+        const initrdSrc = `/boot/initrd.img-${uname}`;
+
+        const destKernel = path.join(isoDest, "vmlinuz");
+        const destInitrd = path.join(isoDest, "initrd.img");
+
+        if (await exists(vmlinuzSrc)) {
+            console.log(`   Copying ${vmlinuzSrc} -> ${destKernel}`);
+            await Deno.copyFile(vmlinuzSrc, destKernel);
+        } else {
+            console.warn(`⚠️ Kernel not found at ${vmlinuzSrc}`);
+        }
+
+        if (await exists(initrdSrc)) {
+            console.log(`   Copying ${initrdSrc} -> ${destInitrd}`);
+            await Deno.copyFile(initrdSrc, destInitrd);
+        }
+    } catch (e) {
+        console.error("❌ Kernel copy failed:", e);
+    }
+  }
+
+  private async cleanUsers(mountPoint: string) {
+    console.log("-> Cleaning users (Redistribution Mode)...");
+    // TODO: Qui implementeremo la rimozione righe da /etc/passwd e /etc/shadow
+    // usando Deno.readTextFile e replace()
+  }
+}

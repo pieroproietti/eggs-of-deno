@@ -5,34 +5,30 @@ import { Ovary } from "../classes/ovary.ts";
 import { Utils } from "../classes/utils.ts";
 
 export const produceCommand = new Command()
-  .description("Produce the live ISO image (The Mother command)")
-  .option("-c, --clone", "Create a complete backup (including user data)")
-  .option("-f, --fast", "Use lighter compression for speed")
-  .option("-M, --max", "Use maximum compression (slow but small)")
+  .description("Produce the live ISO image")
+  .option("-c, --clone", "Create a complete backup")
+  .option("-f, --fast", "Use lighter compression")
+  .option("-M, --max", "Use maximum compression")
   
   .action(async (options) => {
-    // 1. Load Configuration
     const config = await Settings.load();
 
-    // 2. Apply CLI overrides (flags have priority over config)
-    if (options.fast) {
-        console.log("-> Speed mode active: Switching to gzip");
-        config.compression = "gzip";
-    } else if (options.max) {
-        console.log("-> Max mode active: Switching to zstd/xz");
-        config.compression = "zstd"; // Just an example
-    }
+    // Override config da CLI
+    if (options.fast) config.compression = "gzip";
+    if (options.max) config.compression = "zstd";
 
-    // 3. Initialize the Engine (Ovary)
     const ovary = new Ovary(config);
 
-    // 4. Run the process
     try {
-        await ovary.prepare(options.clone || false);
-        await ovary.produce();
+        // PRIMA C'ERA: await ovary.prepare(...);
+        // ORA: Chiamiamo solo produce passando le opzioni
+        await ovary.produce({
+          clone: options.clone,
+          fast: options.fast,
+          max: options.max,
+          verbose: true 
+        });
         
-        Utils.title("Process Completed");
-        console.log("Your egg is ready in /home/eggs/..."); // Placeholder
     } catch (error) {
         console.error("❌ Error during reproduction:", error);
     }

@@ -1,47 +1,70 @@
 // src/classes/ovary.ts
 import { Settings, IEggsConfig } from "./settings.ts";
 import { Utils } from "./utils.ts";
-import { path, ensureDir } from "../deps.ts";
+import { Distro } from "./distro.ts";
+import { Incubator } from "./incubator.ts";
+import { Constants } from "./constants.ts";
+
+// I Worker specializzati
+import { FileSystem } from "./ovary.d/filesystem.ts";
+import { PreFlight } from "./ovary.d/pre-flight.ts";
+import { Squash } from "./ovary.d/squash.ts";
+import { Iso } from "./ovary.d/iso.ts";
+
+export interface IProduceOptions {
+  clone?: boolean;
+  homecrypt?: boolean;
+  fullcrypt?: boolean;
+  fast?: boolean;
+  max?: boolean;
+  verbose?: boolean;
+  scriptOnly?: boolean;
+  includeRootHome?: boolean;
+}
 
 export class Ovary {
   private config: IEggsConfig;
+  private distro: any; 
 
   constructor(config: IEggsConfig) {
     this.config = config;
   }
 
   /**
-   * Prepares the environment for the remastering process.
-   * (Checking paths, mounting points, etc.)
+   * Produce: Il ciclo di vita dell'uovo
    */
-  async prepare(isClone: boolean = false) {
-    Utils.title("Ovary: Fertilization Process Started");
+  async produce(options: IProduceOptions = {}) {
+    Utils.title("🥚 Ovary: Production Cycle Started");
 
-    console.log(`- Mode: ${isClone ? "Backup/Clone (Encrypted)" : "Redistribution (Clean)"}`);
-    console.log(`- Compression: ${this.config.compression}`);
-    console.log(`- Snapshot Prefix: ${this.config.snapshot_prefix}`);
+    // 1. Identità
+    this.distro = await Distro.getInfo();
+    console.log(`🐧 Distro: ${this.distro.distribId} (${this.distro.codename})`);
 
-    // Simulate creating the work directory
-    const workPath = path.join("/tmp", "eggs-work-dir"); // Just a test path for now
-    console.log(`- Creating working directory at: ${workPath}...`);
-    
-    // In Deno, we can use ensureDir to make sure path exists (like mkdir -p)
-    await ensureDir(workPath);
-    
-    console.log("✅ Environment ready.");
-  }
+    // 2. FileSystem (Overlay / Bind)
+    const fsLayer = new FileSystem(this.config, this.distro);
+    await fsLayer.bind(options);
 
-  /**
-   * The main build process (Simulation)
-   */
-  async produce() {
-    Utils.title("Ovary: Gestation (Build ISO)");
-    
-    // Simulate a delay for the build
-    console.log("-> Compressing filesystem (this takes time)...");
-    await new Promise(r => setTimeout(r, 1000)); // Sleep 1s
-    
-    console.log(`-> Generating ISO using ${this.config.compression}...`);
-    console.log("✅ ISO Created successfully (Simulated)");
+    // 3. Pre-Flight (Kernel, Initrd, Users)
+    // Nota: PreFlight lavora dentro il mountpoint creato da fsLayer
+    const flight = new PreFlight(this.config, this.distro);
+    await flight.prepare(options); 
+
+    // 4. Incubator (Configurazione Calamares/Krill)
+    const incubator = new Incubator(this.distro);
+    const calamaresPath = `${Constants.NEST}/.mnt/${Constants.CALAMARES_DIR}`;
+    await incubator.configure(calamaresPath);
+
+    // 5. SquashFS (Compressione)
+    const squash = new Squash(this.config, this.distro);
+    await squash.compress(options);
+
+    // 6. ISO (Creazione Immagine)
+    const iso = new Iso(this.config, this.distro);
+    await iso.build(options);
+
+    // 7. Cleanup (Unbind)
+    // await fsLayer.unbind(); // Decommentare in produzione
+
+    Utils.title("✅ Uovo Deposto con Successo!");
   }
 }
