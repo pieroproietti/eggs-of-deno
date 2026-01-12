@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "start": "deno run --allow-all src/main.ts",
+    "compile": "deno compile --allow-all --output eggs src/main.ts"
+  }
+}
