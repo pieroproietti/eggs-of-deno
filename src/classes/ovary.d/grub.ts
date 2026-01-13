@@ -4,7 +4,7 @@ import { Constants } from "../constants.ts";
 import { Utils } from "../utils.ts";
 import { IDistroInfo } from "../distro.ts";
 import { Diversions } from "../diversions.ts";
-import { path, exists, mustache } from "../../deps.ts";
+import { path, exists, mustache, ensureDir } from "../../deps.ts";
 
 export class Grub {
   private config: IEggsConfig;
@@ -86,5 +86,61 @@ export class Grub {
         console.error(`❌ Template missing: ${mainCfgTpl}`);
         throw new Error("Missing grub.main.cfg template");
     }
+  }
+
+  /**
+   * Genera l'immagine EFI (efiboot.img) e il bootloader UEFI (BOOTX64.EFI)
+   * Richiede: grub-mkimage, mtools (mformat, mmd, mcopy)
+   */
+  async makeEfi(isoWork: string) {
+    Utils.title("🐛 Grub: Creating EFI Boot Image");
+
+    const efiDir = path.join(isoWork, "EFI/BOOT");
+    await ensureDir(efiDir);
+
+    const bootEfiPath = path.join(efiDir, "BOOTX64.EFI");
+    const efibootImgPath = path.join(isoWork, "EFI/efiboot.img");
+
+    // 1. Generate BOOTX64.EFI
+    console.log("-> Generating BOOTX64.EFI...");
+    const grubModules = [
+      "part_gpt", "part_msdos", "fat", "iso9660",
+      "normal", "configfile", "linux", "multiboot",
+      "search", "search_fs_uuid", "search_label",
+      "minicmd", "test", "echo", "gzio", "gettext",
+      "cat", "ls", "help", "font", "gfxterm", "gfxmenu" 
+    ];
+    
+    // -p /boot/grub points grub to look for config there relative to root of device
+    const grubArgs = [
+       "-o", bootEfiPath,
+       "-O", "x86_64-efi",
+       "-p", "/boot/grub",
+       ...grubModules
+    ];
+    
+    // Verifichiamo se grub-mkimage fallisce
+    const grubRes = await Utils.run("grub-mkimage", grubArgs);
+    if (!grubRes.success) {
+        console.error("❌ Error running grub-mkimage");
+        throw new Error("grub-mkimage failed");
+    }
+
+    // 2. Create efiboot.img (4MB)
+    console.log("-> Creating efiboot.img...");
+    await Utils.run("dd", ["if=/dev/zero", `of=${efibootImgPath}`, "bs=1M", "count=4"]);
+
+    // 3. Format with VFAT (mformat)
+    await Utils.run("mformat", ["-i", efibootImgPath, "::"]);
+
+    // 4. Create directory structure inside image
+    await Utils.run("mmd", ["-i", efibootImgPath, "::/EFI"]);
+    await Utils.run("mmd", ["-i", efibootImgPath, "::/EFI/BOOT"]);
+
+    // 5. Copy BOOTX64.EFI into image
+    console.log("-> Populating efiboot.img...");
+    await Utils.run("mcopy", ["-i", efibootImgPath, bootEfiPath, "::/EFI/BOOT/BOOTX64.EFI"]);
+
+    console.log("✅ EFI Boot Image Ready!");
   }
 }

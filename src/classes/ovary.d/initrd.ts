@@ -158,12 +158,13 @@ export class Initrd {
     // Ensure destination exists
     await Deno.mkdir(path.dirname(destFinal), { recursive: true });
 
-    const cmd = `chroot ${chrootPath} mkinitramfs -o ${internalDest} ${opts.kernel} > ${logFile} 2>&1`;
+    // const cmd = `chroot ${chrootPath} mkinitramfs -o ${internalDest} ${opts.kernel} > ${logFile} 2>&1`;
+    const cmd = `mkinitramfs -o ${destFinal} ${opts.kernel}`;
     
     await sh(cmd, opts.echo);
 
-    if (await exists(tempFileOnHost)) {
-      await Deno.rename(tempFileOnHost, destFinal);
+    if (await exists(destFinal)) {
+      console.log(`Initrd created at ${destFinal}`);
     } else {
       Utils.error(`Error: Initrd not found at ${tempFileOnHost}. See log: ${logFile}`);
       throw new Error("Initrd generation failed inside chroot.");

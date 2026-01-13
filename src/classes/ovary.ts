@@ -73,7 +73,7 @@ export class Ovary {
       kernel: kernelVer,
       isoWork: path.join(Constants.NEST, "iso"),
       isoSource: this.config.snapshot_dir || "", // Check definition of 'snapshot_dir' vs 'iso_source'
-      distroId: this.distro.distribId, // e.g. "ManjaroLinux" or "Debian"
+      distroId: this.distro.id, // e.g. "ManjaroLinux" or "Debian"
       distribId: this.distro.distribId,
       snapshotPrefix: this.config.snapshot_prefix,
       echo: options.verbose
@@ -92,7 +92,10 @@ export class Ovary {
 
     // 4. GRUB (UEFI)
     const grub = new Grub(this.config, this.distro);
-    await grub.configure(themePath);    
+    await grub.configure(themePath);
+    // 5.3. EFI Boot Image (NEW)
+    const isoWork = path.join(Constants.NEST, "iso");
+    await grub.makeEfi(isoWork);    
 
     // --- 3. PULIZIA ISO ROOT (NUOVO STEP) ---
     await this.cleanIsoRoot();    
