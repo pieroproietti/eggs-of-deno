@@ -11,6 +11,12 @@ export class Diversions {
     return familyId === 'fedora' && isEfi;
   }
 
+  static isManjaroBased(distribId: string): boolean {
+      const id = distribId.toLowerCase();
+      // Expanded list of manjaro-based or compatible distros if needed
+      return id.includes("manjaro") || id.includes("biglinux") || id.includes("bigcommunity");
+  }
+
   /**
    * kernelParameters
    * Genera la stringa di boot per il kernel a seconda della famiglia

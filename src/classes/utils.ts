@@ -58,6 +58,14 @@ export class Utils {
     console.log(`\n=== ${text} ===\n`);
   }
 
+  static warning(text: string) {
+    console.log(`⚠️  ${text}`);
+  }
+
+  static error(text: string) {
+    console.error(`❌ ${text}`);
+  }
+
   static async getPrimaryUser(): Promise<string> {
     try {
       const content = await Deno.readTextFile("/etc/passwd");

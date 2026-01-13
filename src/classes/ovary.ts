@@ -16,7 +16,7 @@ import { Theme } from "./theme.ts";
 import { path, ensureDir, exists } from "../deps.ts"; 
 import { Syslinux } from "./ovary.d/syslinux.ts";
 import { Grub } from "./ovary.d/grub.ts";
-import * as Initrd from "./ovary.d/initrd.ts";
+import { Initrd } from "./ovary.d/initrd.ts";
 
 export interface IProduceOptions {
   clone?: boolean;
@@ -64,6 +64,20 @@ export class Ovary {
     // 5. SquashFS (Compressione)
     const squash = new Squash(this.config, this.distro);
     await squash.compress(options);
+
+    // --- 5.0 Initramfs Generation ---
+    Utils.title("🌭 Generating Initramfs");
+    const kernelVer = (await Utils.run("uname", ["-r"])).out.trim();
+    
+    await Initrd.generate({
+      kernel: kernelVer,
+      isoWork: path.join(Constants.NEST, "iso"),
+      isoSource: this.config.snapshot_dir || "", // Check definition of 'snapshot_dir' vs 'iso_source'
+      distroId: this.distro.distribId, // e.g. "ManjaroLinux" or "Debian"
+      distribId: this.distro.distribId,
+      snapshotPrefix: this.config.snapshot_prefix,
+      echo: options.verbose
+    });
 
     // --- 5.1. BOOTLOADERS INJECTION (Via Diversions) ---
     await this.injectBootloaders();

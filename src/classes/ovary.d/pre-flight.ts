@@ -64,10 +64,12 @@ export class PreFlight {
         }
 
         // Copia Initrd
-        if (await exists(initrdSrc)) {
-            console.log(`   Copying ${initrdSrc} -> ${destInitrd}`);
-            await Deno.copyFile(initrdSrc, destInitrd);
-        }
+        // if (await exists(initrdSrc)) {
+        //     console.log(`   Copying ${initrdSrc} -> ${destInitrd}`);
+        //     await Deno.copyFile(initrdSrc, destInitrd);
+        // }
+        // MODIFIED: We now generate initrd separately using mkinitfs/dracut/mkinitcpio
+        console.log("   ℹ️  Skipping host initrd copy (will be generated)");
         
     } catch (e) {
         console.error("❌ Kernel copy failed:", e);
