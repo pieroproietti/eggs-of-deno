@@ -945,54 +945,5 @@ EXAMPLES
 _See code: [src/commands/wardrobe/wear.ts](https://github.com/pieroproietti/eggs-of-deno/blob/v26.1.11/src/commands/wardrobe/wear.ts)_
 <!-- commandsstop -->
 
-# GUI
-There are two GUIs for eggs-of-deno at the moment: eggsmaker and penGUI.
-
-## eggsmaker
-### A project by [Jorge Luis Endres](https://github.com/jlendres/eggsmaker).
-
-![eggsmaker](https://github.com/jlendres/eggsmaker/raw/main/images/eggsmaker-running.png)
-
-eggsmaker is a graphical interface for eggs-of-deno.
-
-Written by my friend Jorge Luis Endres, it is essential and functional. It doesn’t cover all the possibilities of eggs-of-deno, but in the end, a GUI should be simple and intuitive.
-
-I like it, I hope you like it too, and I thank Jorge for his daring. 
-
-eggsmaker packages are available on [Jorge gdrive](https://drive.google.com/drive/folders/1hK8OB3e5sM2M9Z_vy1uR3_X7gPdNFYdO).
-
-# Book
-
-My friend [Hosein Seilany](https://predator-store.com/about-us/)  founder of [predator-os](https://predator-os.ir/), has written a book on Penguins's eggs, with my partecipation. It's a remarkable work - even in size and weight - so it's a great honor to [announce](https://predator-store.com/product/eggs-of-deno-tool) it here!
-
-[![book](https://predator-store.com/wp-content/uploads/2025/05/final1-copy-2-1450x2048.jpg?raw=true)](https://predator-store.com/product/eggs-of-deno-tool/)
-
-## That's all, Folks!
-
- One of the standout features of Penguins Eggs' is its hassle-free setup. It comes with all the necessary configurations, making it a convenient choice for users. Just like in real life, the magic of Penguins Eggs' lies within - no additional setup required! 
-
-## More Information
-
-In addition to the official guide, there are other resources available for Penguins Eggs' users, particularly developers. These resources can be found in the [eggs-of-deno repository](https://github.com/pieroproietti/eggs-of-deno) under the [documents](https://github.com/pieroproietti/eggs-of-deno/tree/master/documents) section.
-
-Some noteworthy documents include:
-- [Hens: Different Species](https://github.com/pieroproietti/eggs-of-deno/blob/master//hens-different-species.md): A brief guide on using Penguins Eggs' in Debian, Arch, and Manjaro.
-- [Arch-naked](https://eggs-of-deno.net/docs/Tutorial/archlinux-naked.html): A blog post detailing how to create an Arch naked live, install it, and customize the resulting system into a graphics development station.
- 
-If you have any questions or need further assistance, feel free to contact me via email at pieroproietti@gmail.com. You can also stay updated by following my [blog](https://eggs-of-deno.net) or connecting with me on , [Telegram](https://t.me/penguins_eggs), [Mastodom](https://social.treehouse.systems/@artisan), [Facebook](https://www.facebook.com/groups/128861437762355/), [GitHub](https://github.com/pieroproietti/penguins-krill), [Jitsi](https://meet.jit.si/PenguinsEggsMeeting), [Reddit](https://www.reddit.com/user/Artisan61) or [Twitter](https://twitter.com/pieroproietti), 
-[Mastodom](https://social.treehouse.systems/@artisan).
-
-## A word of thanks
-* This README would not be so well cared for if not for the work of [Hosein Seilain](https://github.com/hosseinseilani) who spent his time revising and supplementing the text;
-* The eggs icon was designed by [Charlie Martinez](https://github.com/quirinux-so);
-* and a word of thanks to all of you who are using it and providing feedback and motivation to continue it. 
-
-Thank you!
-
-## Star History
-This project collects stars, look to the sky... contribute! 
-
-[![Star History Chart](https://api.star-history.com/svg?repos=pieroproietti/eggs-of-deno&type=Date)](https://star-history.com/#pieroproietti/eggs-of-deno&Date)
-
 # Copyright and licenses
-Copyright (c) 2017, 2025 [Piero Proietti](https://eggs-of-deno.net/about-me.html), dual licensed under the MIT or GPL Version 2 licenses.
+Copyright (c) 2026 [Piero Proietti](https://eggs-of-deno.net/about-me.html), dual licensed under the MIT or GPL Version 2 licenses.
