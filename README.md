@@ -1,5 +1,8 @@
-# README
 # eggs-of-deno
+
+eggs-of-deno è un tentativo di riscrittura di [penguins-eggs](https://github.com/pieroproietti/penguins-egges), al momento molto promettente ma nulla più.
+
+Il sul sviluppo è iniziato il giono 11 gennaio 2026 usando l'AI gemini, antigravity e l'autore di eggs stesso Pero Proietti.
 
 **eggs-of-deno** (or simply `eggs`) is a console tool that allows you to remaster your system and redistribute it as live images on USB sticks or via PXE.
 
