@@ -3,7 +3,7 @@ import { IEggsConfig } from "../settings.ts";
 import { Constants } from "../constants.ts";
 import { Utils } from "../utils.ts";
 import { IDistroInfo } from "../distro.ts";
-import { path, exists } from "../../deps.ts";
+import { path, ensureDir, exists } from "../../deps.ts";
 
 export class Iso {
   private config: IEggsConfig;
@@ -15,95 +15,72 @@ export class Iso {
   }
 
   async build(options: any) {
-    Utils.title("💿 ISO Generation (Xorriso)");
+    Utils.title("💿 ISO: Building Hybrid Image");
 
-    // 1. Definizioni Variabili
-    const arch = Deno.build.arch; 
-    const date = new Date();
-    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-    const volid = `EGGS-${dateStr.replace(/-/g, '')}`; 
-
-    // Logica suffisso file
-    let typology = "";
-    const prefix = this.config.snapshot_prefix;
-    if (prefix.startsWith("egg-of_")) {
-        if (options.clone) typology = "_clone";
-        else if (options.homecrypt) typology = "_clone-home-crypted";
-        else if (options.fullcrypt) typology = "_clone-full-crypted";
-    }
-
-    // Nome file finale
-    const isoFilename = `${prefix}-${this.distro.distribId}-${this.distro.codename}${typology}-${dateStr}.iso`;
-    const outputPath = path.join(Constants.NEST, isoFilename);
+    const isoWork = path.join(Constants.NEST, "iso"); 
     
-    // Directory sorgente (dove abbiamo messo filesystem.squashfs, kernel, etc.)
-    const sourcePath = path.join(Constants.NEST, "iso"); 
+    // Nomi file sicuri
+    const safeDistroId = this.distro.distribId.replaceAll(" ", "_").replaceAll("/", "-");
+    const safeCodename = this.distro.codename.replaceAll(" ", "_");
+    const isoName = `${this.config.snapshot_prefix}-${safeDistroId}-${safeCodename}-${Deno.build.arch}.iso`;
+    const isoPath = path.join(Constants.NEST, isoName);
 
-    console.log(`-> Architecture: ${arch}`);
-    console.log(`-> Output: ${outputPath}`);
+    // Volume ID (Max 32 chars, Uppercase)
+    let volId = `${this.config.snapshot_prefix}_${safeDistroId}_${safeCodename}`.toUpperCase();
+    volId = volId.replace(/[^A-Z0-9_]/g, "_");
+    if (volId.length > 30) volId = volId.substring(0, 30);
 
-    // 2. Costruzione Comando Xorriso (Array è più sicuro delle stringhe)
-    const args = [
-      "-as", "mkisofs",
-      "-J",
-      "-joliet-long",
-      "-l",
-      "-iso-level", "3",
-      "-partition_offset", "16",
-      "-V", volid
+    // Generazione checksums interni
+    await this.generateChecksums(isoWork);
+
+    // --- XORRISO COMMAND ---
+    // Usiamo ISOLINUX per il BIOS (legacy) e GRUB per EFI
+    const xorrisoArgs = [
+        "-as", "mkisofs",
+        "-iso-level", "3",
+        "-full-iso9660-filenames",
+        "-volid", volId,
+        "-output", isoPath,
+        
+        // --- BIOS BOOT (Legacy / CD) ---
+        // Usiamo isolinux.bin invece di bios.img
+        "-b", "isolinux/isolinux.bin",       // Il file binario di boot
+        "-c", "isolinux/boot.cat",           // Il catalogo (verrà creato da xorriso)
+        "-no-emul-boot",
+        "-boot-load-size", "4",
+        "-boot-info-table",
+        
+        // --- EFI BOOT (UEFI) ---
+        "-eltorito-alt-boot",
+        "-e", "EFI/efiboot.img",
+        "-no-emul-boot",
+        "-isohybrid-gpt-basdat",             // Crea tabella partizioni ibrida GPT
+        
+        isoWork
     ];
 
-    // --- ARCHITETTURA X86/X64 (MBR HYBRID) ---
-    const isArm = arch === "aarch64";
-    const isRiscV = arch === "x86_64" ? false : true; // Semplificazione, da affinare
+    console.log(`-> Creating ISO: ${isoName}`);
+    console.log(`-> Boot Strategy: ISOLINUX (Bios) + GRUB (Efi)`);
 
-    if (!isArm && !isRiscV) {
-        // Cerchiamo isohdpfx.bin
-        const possibleMbrs = [
-            "/usr/lib/ISOLINUX/isohdpfx.bin",
-            "/usr/lib/syslinux/isohdpfx.bin",
-            "/usr/share/syslinux/isohdpfx.bin"
-        ];
+    const result = await Utils.run("xorriso", xorrisoArgs, true);
+    const isoCreated = await exists(isoPath);
+
+    if (result.success || (isoCreated && result.code === 32)) { // Tolleranza codice 32
+        console.log(`\n✅ ISO Created Successfully!`);
+        console.log(`📂 Path: ${isoPath}`);
         
-        let mbrFound = false;
-        for (const bin of possibleMbrs) {
-            if (await exists(bin)) {
-                args.push("-isohybrid-mbr", bin);
-                mbrFound = true;
-                break;
-            }
-        }
-        
-        // Boot params standard x86
-        args.push("-b", "isolinux/isolinux.bin");
-        args.push("-c", "isolinux/boot.cat");
-        args.push("-no-emul-boot", "-boot-load-size", "4", "-boot-info-table");
+        console.log("-> Calculating ISO checksum...");
+        await Utils.run("sh", ["-c", `md5sum ${isoPath} > ${isoPath}.md5`]);
+        console.log("✅ Checksum ready.");
+    } else {
+        throw new Error("ISO Creation Failed");
     }
+  }
 
-    // --- UEFI SUPPORT ---
-    if (this.config.make_efi !== false) { // Default true
-       args.push("-eltorito-alt-boot");
-       args.push("-e", "boot/grub/efi.img");
-       args.push("-no-emul-boot");
-       args.push("-isohybrid-gpt-basdat");
-    }
-
-    // --- LUKS PARTITION APPEND (Se serve) ---
-    if (options.fullcrypt) {
-        const luksMapName = "root.img"; 
-        const luksPath = path.join(sourcePath, "live", luksMapName);
-        if (await exists(luksPath)) {
-            console.log("🔒 Appending LUKS partition...");
-            args.push("-append_partition", "3", "0x80", luksPath);
-        }
-    }
-
-    // --- FINALIZZAZIONE ---
-    args.push("-o", outputPath);
-    args.push(sourcePath); // Sorgente alla fine
-
-    // ESECUZIONE
-    // await Utils.run("xorriso", args);
-    console.log(`[SIMULATION] xorriso ${args.join(" ")}`);
+  private async generateChecksums(isoWork: string) {
+    console.log("-> Generating internal md5sum.txt...");
+    // Escludiamo i file di boot dal checksum interno per evitare loop strani
+    const cmd = `cd ${isoWork} && find . -type f -not -name 'md5sum.txt' -not -path '*/isolinux/*' -not -path '*/EFI/*' -print0 | xargs -0 md5sum > md5sum.txt`;
+    await Utils.run("sh", ["-c", cmd]);
   }
 }

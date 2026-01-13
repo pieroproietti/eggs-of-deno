@@ -4,7 +4,7 @@ import { Distro } from "./distro.ts";
 import { path, exists } from "../deps.ts";
 
 export class Bleach {
-  
+
   /**
    * Pulisce il sistema host (o un chroot se passiamo logiche diverse, ma per ora è Host)
    */
@@ -24,13 +24,13 @@ export class Bleach {
     await this.cleanFlatpak(verbose);
     await this.cleanHistory(verbose);
     await this.cleanJournal(verbose);
-    
+
     // 4. Integrazione: Pulizia File Sensibili (Machine ID, Random Seed)
     await this.cleanSensitive(verbose);
 
     // 5. Drop Caches (Va fatto per ultimo)
     await this.cleanSystemCache(verbose);
-    
+
     console.log("✨ System looks shiny and chrome!");
   }
 
@@ -71,9 +71,9 @@ export class Bleach {
       case "almalinux":
         // Rimuove vecchi kernel (comando complesso con subshell)
         try {
-           await Utils.run("bash", ["-c", "dnf remove $(dnf repoquery --installonly --latest-limit=-1 -q) -y"]);
+          await Utils.run("bash", ["-c", "dnf remove $(dnf repoquery --installonly --latest-limit=-1 -q) -y"]);
         } catch (e) {
-           console.warn("Nessun vecchio kernel da rimuovere o dnf fallito.");
+          console.warn("Nessun vecchio kernel da rimuovere o dnf fallito.");
         }
         await Utils.run("dnf", ["clean", "all"]);
         break;
@@ -108,17 +108,17 @@ export class Bleach {
    */
   private async cleanHistory(verbose: boolean) {
     if (verbose) console.log("-> Cleaning bash history...");
-    
+
     const histories = [
-        "/root/.bash_history",
-        `/home/${await Utils.getPrimaryUser()}/.bash_history` // Helper da implementare o usare Deno.env
+      "/root/.bash_history",
+      `/home/${await Utils.getPrimaryUser()}/.bash_history` // Helper da implementare o usare Deno.env
     ];
 
     for (const hist of histories) {
-        if (await exists(hist)) {
-            await Deno.remove(hist);
-            if (verbose) console.log(`   Removed: ${hist}`);
-        }
+      if (await exists(hist)) {
+        await Deno.remove(hist);
+        if (verbose) console.log(`   Removed: ${hist}`);
+      }
     }
   }
 
@@ -128,26 +128,26 @@ export class Bleach {
   private async cleanJournal(verbose: boolean) {
     if (verbose) console.log("-> Cleaning journals...");
 
-    // TODO: Implementare Utils.isSystemd(). Per ora assumiamo check cartella
-    const hasSystemd = await exists("/run/systemd/system");
+
+    const hasSystemd = await Utils.isSystemd();
 
     if (hasSystemd) {
-        try {
-            await Utils.run("journalctl", ["--rotate"]);
-            await Utils.run("journalctl", ["--vacuum-time=1s"]);
-        } catch (e) {
-            console.error("Errore journalctl:", e);
-        }
+      try {
+        await Utils.run("journalctl", ["--rotate"]);
+        await Utils.run("journalctl", ["--vacuum-time=1s"]);
+      } catch (e) {
+        console.error("Errore journalctl:", e);
+      }
     } else {
-        // Logica SysVinit: trova .gz e tronca file
-        if (verbose) console.log("   (Legacy log cleanup)");
-        
-        // 1. Rimuovi archivi gz
-        await Utils.run("sh", ["-c", "find /var/log -name '*.gz' -delete"]);
-        
-        // 2. Tronca i file di log attivi (senza cancellarli)
-        // find /var/log/ -type f -exec truncate -s 0 {} \;
-        await Utils.run("sh", ["-c", "find /var/log/ -type f -exec truncate -s 0 {} \\;"]);
+      // Logica SysVinit: trova .gz e tronca file
+      if (verbose) console.log("   (Legacy log cleanup)");
+
+      // 1. Rimuovi archivi gz
+      await Utils.run("sh", ["-c", "find /var/log -name '*.gz' -delete"]);
+
+      // 2. Tronca i file di log attivi (senza cancellarli)
+      // find /var/log/ -type f -exec truncate -s 0 {} \;
+      await Utils.run("sh", ["-c", "find /var/log/ -type f -exec truncate -s 0 {} \\;"]);
     }
   }
 
@@ -159,18 +159,18 @@ export class Bleach {
     if (verbose) console.log("-> Cleaning sensitive identifiers...");
 
     const targets = [
-        "/var/lib/dbus/machine-id",
-        "/var/lib/systemd/random-seed",
-        "/var/lib/dhcp/dhclient.leases" // Spesso dimenticato!
+      "/var/lib/dbus/machine-id",
+      "/var/lib/systemd/random-seed",
+      "/var/lib/dhcp/dhclient.leases" // Spesso dimenticato!
     ];
 
     for (const f of targets) {
-        if (await exists(f)) {
-            // Tronchiamo invece di rimuovere se serve mantenere il file vuoto
-            // Ma per machine-id spesso è meglio rimuovere o svuotare
-            await Deno.writeTextFile(f, ""); 
-            if (verbose) console.log(`   Truncated: ${f}`);
-        }
+      if (await exists(f)) {
+        // Tronchiamo invece di rimuovere se serve mantenere il file vuoto
+        // Ma per machine-id spesso è meglio rimuovere o svuotare
+        await Deno.writeTextFile(f, "");
+        if (verbose) console.log(`   Truncated: ${f}`);
+      }
     }
   }
 
@@ -179,15 +179,15 @@ export class Bleach {
    */
   private async cleanSystemCache(verbose: boolean) {
     if (verbose) console.log("-> Dropping system caches...");
-    
+
     try {
-        // await exec('sync; echo 3 > /proc/sys/vm/drop_caches')
-        await Utils.run("sync", []);
-        
-        // Scriviamo direttamente sul file proc (richiede permessi, ma eggs gira come root)
-        await Deno.writeTextFile("/proc/sys/vm/drop_caches", "3");
+      // await exec('sync; echo 3 > /proc/sys/vm/drop_caches')
+      await Utils.run("sync", []);
+
+      // Scriviamo direttamente sul file proc (richiede permessi, ma eggs gira come root)
+      await Deno.writeTextFile("/proc/sys/vm/drop_caches", "3");
     } catch (e) {
-        console.warn("⚠️ Non posso scrivere in /proc/sys/vm/drop_caches (Permessi?)");
+      console.warn("⚠️ Non posso scrivere in /proc/sys/vm/drop_caches (Permessi?)");
     }
   }
 }

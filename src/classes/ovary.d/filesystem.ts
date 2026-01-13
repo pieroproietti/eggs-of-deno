@@ -180,8 +180,8 @@ export class FileSystem {
     const exe = parts[0];
     const args = parts.slice(1);
 
-    // console.log(`[EXEC] ${cmd}`); // Verbose
-    // await Utils.run(exe, args); // Decommenta per eseguire
+    console.log(`[EXEC] ${cmd}`); // Verbose
+    await Utils.run(exe, args); // Decommenta per eseguire
   }
 
   /**

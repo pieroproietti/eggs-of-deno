@@ -12,7 +12,7 @@ export interface IEggsConfig {
 
 const DEFAULT_CONFIG: IEggsConfig = {
   snapshot_dir: "eggs",
-  snapshot_prefix: "egg-of_",
+  snapshot_prefix: "egg-of",
   compression: "gzip",
   make_efi: true,       // Default true
   make_isohybrid: true  // Default true

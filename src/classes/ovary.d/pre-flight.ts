@@ -23,6 +23,7 @@ export class PreFlight {
     // 1. Crea directory di lavoro
     const workDir = path.join(Constants.NEST, ".mnt");
     const isoDir = path.join(Constants.NEST, "iso");
+    
     await ensureDir(workDir);
     await ensureDir(isoDir);
 
@@ -38,16 +39,23 @@ export class PreFlight {
   private async handleKernel(isoDest: string) {
     console.log("-> Searching for Kernel...");
     
-    // Logica semplificata: prende il vmlinuz corrente
-    // In futuro: logica complessa per Alpine/Arch come nel tuo codice originale
+    // --- MODIFICA: Destinazione è iso/live ---
+    const liveDest = path.join(isoDest, "live");
+    await ensureDir(liveDest); 
+    // ----------------------------------------
+
     try {
         const uname = (await Utils.run("uname", ["-r"])).out;
+        
+        // Percorsi Sorgente (Host)
         const vmlinuzSrc = `/boot/vmlinuz-${uname}`;
         const initrdSrc = `/boot/initrd.img-${uname}`;
 
-        const destKernel = path.join(isoDest, "vmlinuz");
-        const destInitrd = path.join(isoDest, "initrd.img");
+        // Percorsi Destinazione (ISO/live)
+        const destKernel = path.join(liveDest, "vmlinuz");
+        const destInitrd = path.join(liveDest, "initrd.img");
 
+        // Copia Vmlinuz
         if (await exists(vmlinuzSrc)) {
             console.log(`   Copying ${vmlinuzSrc} -> ${destKernel}`);
             await Deno.copyFile(vmlinuzSrc, destKernel);
@@ -55,10 +63,12 @@ export class PreFlight {
             console.warn(`⚠️ Kernel not found at ${vmlinuzSrc}`);
         }
 
+        // Copia Initrd
         if (await exists(initrdSrc)) {
             console.log(`   Copying ${initrdSrc} -> ${destInitrd}`);
             await Deno.copyFile(initrdSrc, destInitrd);
         }
+        
     } catch (e) {
         console.error("❌ Kernel copy failed:", e);
     }
@@ -66,7 +76,6 @@ export class PreFlight {
 
   private async cleanUsers(mountPoint: string) {
     console.log("-> Cleaning users (Redistribution Mode)...");
-    // TODO: Qui implementeremo la rimozione righe da /etc/passwd e /etc/shadow
-    // usando Deno.readTextFile e replace()
+    // TODO: Implementazione pulizia utenti
   }
 }

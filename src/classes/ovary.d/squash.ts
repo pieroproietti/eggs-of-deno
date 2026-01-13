@@ -9,7 +9,6 @@ export class Squash {
   private config: IEggsConfig;
   private distro: IDistroInfo;
   
-  // Accumulatore per le esclusioni dinamiche (-e file1 file2 ...)
   private sessionExcludes: string[] = [];
 
   constructor(config: IEggsConfig, distro: IDistroInfo) {
@@ -17,154 +16,138 @@ export class Squash {
     this.distro = distro;
   }
 
-  /**
-   * Crea il filesystem compresso (filesystem.squashfs)
-   */
   async compress(options: any) {
     Utils.title("📦 SquashFS: Compressing Filesystem");
 
-    const source = path.join(Constants.NEST, ".mnt"); // La root del sistema unito
+    const source = path.join(Constants.NEST, ".mnt");
     const destDir = path.join(Constants.NEST, "iso/live");
     const destFile = path.join(destDir, "filesystem.squashfs");
-    const scriptFile = path.join(Constants.NEST, "mksquashfs.sh"); // Salviamo lo script qui
+    const scriptFile = path.join(Constants.NEST, "mksquashfs.sh"); 
 
-    // Assicuriamo che la destinazione esista
     await ensureDir(destDir);
 
-    // Rimuoviamo il vecchio file se esiste
     if (await exists(destFile)) {
         await Deno.remove(destFile);
     }
 
-    // --- 1. GESTIONE ESCLUSIONI STATICHE ---
+    // --- 1. ESCLUSIONI STANDARD ---
     const fexcludes = [
-        '/boot/efi/EFI',
-        '/boot/loader/entries/',
-        '/etc/fstab',
-        '/var/lib/containers/',
-        '/var/lib/docker/',
-        '/etc/mtab',
-        '/etc/udev/rules.d/70-persistent-cd.rules',
-        '/etc/udev/rules.d/70-persistent-net.rules',
-        // '/etc/network/interfaces', // Attenzione: valutare se escludere
+        'boot/efi/EFI',
+        'boot/loader/entries',
+        'etc/fstab',
+        'var/lib/containers',
+        'var/lib/docker',
+        'etc/mtab',
+        'etc/udev/rules.d/70-persistent-cd.rules',
+        'etc/udev/rules.d/70-persistent-net.rules',
+        'root/.bash_history',
+        'var/tmp/*'
     ];
 
-    for (const excl of fexcludes) {
-        this.addExclusion(excl);
+    for (const excl of fexcludes) this.addExclusion(excl);
+
+    // --- 2. SAFETY NET (Esclusioni Critiche) ---
+    // Queste DEVONO esserci per evitare loop infiniti o iso giganti
+    
+    // Escludiamo il NEST (/home/eggs -> home/eggs)
+    let nestRel = Constants.NEST;
+    if (nestRel.startsWith('/')) nestRel = nestRel.slice(1);
+    this.addExclusion(nestRel);                 // Esclude la cartella intera
+    this.addExclusion(`${nestRel}/*`);          // Esclude il contenuto
+
+    // Escludiamo TUTTA la home se non richiesto diversamente
+    // (Manteniamo solo lo scheletro della directory)
+    if (!options.includeRootHome) {
+        this.addExclusion("root/*");
+        this.addExclusion("root/.*");
     }
 
-    // --- 2. LOGICA DEBIAN (Cryptdisks cleanup) ---
-    // Scansiona le directory rc*.d per rimuovere servizi di cifratura non voluti nella live
-    if (this.distro.id === 'debian' || this.distro.distribId?.toLowerCase().includes('debian')) {
-        const rcd = ['rc0.d', 'rc1.d', 'rc2.d', 'rc3.d', 'rc4.d', 'rc5.d', 'rc6.d', 'rcS.d'];
-        
-        for (const rcDir of rcd) {
-            const fullPath = path.join(source, 'etc', rcDir);
-            if (await exists(fullPath)) {
-                for await (const entry of Deno.readDir(fullPath)) {
-                    if (entry.name.includes('cryptdisks')) {
-                        this.addExclusion(`/etc/${rcDir}/${entry.name}`);
-                    }
-                }
-            }
+    // Se stiamo facendo una distro (non un clone completo), via la home utente
+    if (!options.clone) {
+        this.addExclusion("home/*");
+        // Ma attenzione: se /home/eggs è dentro /home, è già escluso da home/*
+        // Tuttavia meglio abbondare.
+        console.log("🛡️  Excluding /home content (Distro Mode)");
+    }
+
+    // --- 3. EXCLUDE.LIST (Utente) ---
+    const masterExclude = path.join(Constants.CONFIG_DIR, "exclude.list"); 
+    if (await exists(masterExclude)) {
+        try {
+            const content = await Deno.readTextFile(masterExclude);
+            content.split('\n').forEach(line => {
+                const l = line.trim();
+                if (l && !l.startsWith('#')) this.addExclusion(l);
+            });
+        } catch (e) {
+            console.warn("⚠️ Cannot read exclude.list", e);
         }
     }
 
-    // --- 3. SICUREZZA (Root Home) ---
-    // Se non richiesto esplicitamente, puliamo la home di root
-    if (!options.includeRootHome) {
-        this.addExclusion('root/*');
-        this.addExclusion('root/.*'); // File nascosti
-    }
+    // --- 4. PREPARAZIONE COMANDO ---
+    const args = [source, destFile];
 
-    // Escludiamo la cartella di lavoro stessa per evitare loop ricorsivi
-    // Nota: Constants.NEST di solito è /home/eggs. Se è dentro il source, va escluso.
-    if (Constants.NEST.startsWith(source)) {
-        const relPath = path.relative(source, Constants.NEST);
-        this.addExclusion(relPath);
-    }
-    // Escludiamo anche .eggs-config se esiste
-    this.addExclusion("/etc/penguins-eggs.d/eggs.yaml");
-
-
-    // --- 4. COSTRUZIONE COMANDO ---
-    const args = [
-        source, 
-        destFile
-    ];
-
-    // Compressione
     switch (this.config.compression) {
         case "xz": 
+            // XZ è lento ma comprime molto.
             args.push("-comp", "xz", "-b", "1M"); 
             break;
+            
         case "zstd": 
-            args.push("-comp", "zstd", "-Xcompression-level", "15"); 
+            // I tuoi nuovi parametri ottimizzati: 
+            // Blocco 1M (buono per seek speed) e Level 3 (veloce e decente)
+            args.push("-comp", "zstd", "-b", "1M", "-Xcompression-level", "3"); 
             break;
+            
         default: 
-            args.push("-comp", "gzip");
+            // Default zstd
+            args.push("-comp", "zstd", "-b", "1M", "-Xcompression-level", "3"); 
+            // args.push("-comp", "gzip");
     }
 
-    // Opzioni standard
+    // Aggiungiamo sempre le opzioni standard
     args.push("-no-xattrs", "-wildcards");
 
-    // Patch ARM64 (placeholder)
-    if (Deno.build.arch === "aarch64") {
-        // args.push("-processors", "2", "-mem", "1024M");
-    }
-
-    // File di esclusioni master (exclude.list)
-    const masterExclude = path.join(Constants.CONFIG_DIR, "exclude.list"); // Controlla Constants.EXCLUDES
-    if (await exists(masterExclude)) {
-        args.push("-ef", masterExclude);
-    }
-
-    // Esclusioni di sessione (quelle accumulate sopra)
     if (this.sessionExcludes.length > 0) {
         args.push("-e", ...this.sessionExcludes);
     }
 
-    // --- 5. SALVATAGGIO SCRIPT & ESECUZIONE ---
+    // Script debug
     const cmdString = `mksquashfs ${args.join(" ")}`;
-    
-    // Scriviamo lo script per debug (utile se l'utente vuole rilanciarlo a mano)
     await Deno.writeTextFile(scriptFile, `#!/bin/bash\n${cmdString}\n`);
     await Deno.chmod(scriptFile, 0o755);
 
-    console.log(`Script generato in: ${scriptFile}`);
-    console.log(`Source: ${source}`);
-    console.log(`Dest: ${destFile}`);
+    console.log(`Script: ${scriptFile}`);
+    console.log(`Esclusioni attive: ${this.sessionExcludes.length}`);
+    
+    // Debug: stampa le prime 5 esclusioni per verifica
+    // console.log("Sample excludes:", this.sessionExcludes.slice(0, 5));
 
-    // ESECUZIONE REALE
-    // Nota: mksquashfs è verboso, potremmo voler vedere l'output
-    // Se scriptOnly è true, ci fermiamo qui
-    /*
+// ESECUZIONE REALE
     if (!options.scriptOnly) {
-        const result = await Utils.run("mksquashfs", args);
+        // Rimuoviamo il console.log statico perché ora vedremo l'output vero
+        // console.log("⏳ Compressing... (Check process with 'top' if stuck)"); 
+        
+        // Passiamo 'true' come terzo argomento per abilitare lo streaming
+        const result = await Utils.run("mksquashfs", args, true); 
+        
         if (!result.success) {
-            console.error("❌ Errore mksquashfs:", result.err);
+            console.error("❌ Errore mksquashfs (vedi output sopra)"); // L'errore è già stato stampato a video
             throw new Error("Compressione fallita");
         }
         console.log("✅ Filesystem compresso.");
     }
-    */
-    console.log("✅ (Simulated) mksquashfs completato.");
   }
 
-  /**
-   * Helper per aggiungere esclusioni.
-   * Rimuove lo slash iniziale perché mksquashfs lavora con path relativi.
-   */
   private addExclusion(exclusion: string): void {
-    let cleanExclusion = exclusion;
-    if (cleanExclusion.startsWith('/')) {
-        cleanExclusion = cleanExclusion.slice(1);
+    let clean = exclusion.trim();
+    // Pulisci slash iniziali multipli
+    while (clean.startsWith('/') || clean.startsWith('./')) {
+        if (clean.startsWith('/')) clean = clean.slice(1);
+        if (clean.startsWith('./')) clean = clean.slice(2);
     }
-    
-    // Evitiamo duplicati
-    if (!this.sessionExcludes.includes(cleanExclusion)) {
-        this.sessionExcludes.push(cleanExclusion);
-        // console.log(`Excluding: ${cleanExclusion}`); // Decommenta per debug
+    if (clean && !this.sessionExcludes.includes(clean)) {
+        this.sessionExcludes.push(clean);
     }
   }
 }

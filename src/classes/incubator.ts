@@ -1,7 +1,8 @@
 // src/classes/incubator.ts
-import { IDistroInfo } from "./distro.ts";
 import { Utils } from "./utils.ts";
-import { stringifyYaml, ensureDir, path } from "../deps.ts";
+import { Constants } from "./constants.ts";
+import { IDistroInfo } from "./distro.ts";
+import { path, ensureDir, exists, copyDir } from "../deps.ts";
 
 export class Incubator {
   private distro: IDistroInfo;
@@ -11,69 +12,94 @@ export class Incubator {
   }
 
   /**
-   * Il metodo principale: prepara la configurazione dell'installer
-   * in una cartella di destinazione (es. /tmp/eggs-work/calamares)
+   * Configura gli installer (Calamares / Krill) nel sistema live
+   * @param destRoot La root del sistema montato (es. .mnt)
    */
-  async configure(destinationPath: string) {
-    Utils.title(`Incubator: Configuring for ${this.distro.distribId}`);
+  async configure(destRoot: string) {
+    Utils.title("🥚 Incubator: Configuring Installers");
 
-    // Creiamo la cartella di destinazione
-    await ensureDir(destinationPath);
+    // 1. Configurazione Krill (CLI Installer)
+    await this.setupKrill(destRoot);
 
-    // 1. Generiamo la config di Calamares
-    await this.generateCalamaresConfig(destinationPath);
-    
-    // 2. Generiamo la config di Krill (il nostro TUI installer)
-    await this.generateKrillConfig(destinationPath);
+    // 2. Configurazione Calamares (GUI Installer)
+    // Lo facciamo solo se Calamares è installato sull'host
+    if (await this.hasCalamares()) {
+        await this.setupCalamares(destRoot);
+    } else {
+        console.log("⚠️  Calamares non trovato. La ISO avrà solo l'installer CLI (Krill).");
+    }
   }
 
   /**
-   * Genera i file YAML per Calamares
+   * Prepara Krill (copia eggs.yaml e krill.yaml dentro la live)
    */
-  private async generateCalamaresConfig(dest: string) {
-    console.log("-> Generando configurazione Calamares...");
-
-    // Esempio: Moduli diversi per Arch vs Debian
-    const isArch = this.distro.id === "arch" || this.distro.id === "manjaro";
+  private async setupKrill(destRoot: string) {
+    console.log("-> Setup Krill (CLI Installer)...");
     
-    const modulesUrl = isArch 
-      ? ["pacman-init", "partition", "mount", "unpackfs", "networkcfg"]
-      : ["partition", "mount", "unpackfs", "apt-update", "networkcfg"];
+    // Destinazione: .mnt/etc/penguins-eggs.d/
+    const destConfigDir = path.join(destRoot, Constants.CONFIG_DIR); // Nota: CONFIG_DIR è assoluto, dobbiamo togliere il primo slash se usiamo join o gestire path relativi
+    // Fix path: Constants.CONFIG_DIR è "/etc/penguins-eggs.d"
+    // destRoot è "/home/eggs/.mnt"
+    // join unisce correttamente gestendo le root
+    const realDest = path.join(destRoot, "etc/penguins-eggs.d");
 
-    const calamaresConfig = {
-      modules: modulesUrl,
-      showPrompt: true,
-      branding: "eggs-branding",
-      promptInstall: false,
-      dontChroot: false,
-      oemSetup: false,
-      disableCancel: false,
-      disableRestart: false,
-    };
+    await ensureDir(realDest);
 
-    // Scrittura del file
-    const filePath = path.join(dest, "settings.conf");
-    const yamlContent = stringifyYaml(calamaresConfig);
+    // Copiamo la configurazione generata da DAD
+    const filesToCopy = ["eggs.yaml", "krill.yaml"];
+    for (const file of filesToCopy) {
+        const source = path.join(Constants.CONFIG_DIR, file);
+        const dest = path.join(realDest, file);
+        
+        if (await exists(source)) {
+            await Deno.copyFile(source, dest);
+            // console.log(`   Copied: ${file}`);
+        }
+    }
     
-    await Deno.writeTextFile(filePath, yamlContent);
-    console.log(`   ✅ Scritto: ${filePath}`);
+    // Copiamo l'eseguibile di eggs stesso? 
+    // Per ora assumiamo che eggs sia installato nel sistema, 
+    // ma in futuro potremmo dover copiare l'eseguibile Deno compilato.
   }
 
   /**
-   * Genera la configurazione per Krill (JSON)
+   * Prepara Calamares
    */
-  private async generateKrillConfig(dest: string) {
-    console.log("-> Generando configurazione Krill...");
-    
-    const krillConfig = {
-      distro_target: this.distro.id,
-      installer_version: "1.0.0",
-      use_efi: true, // Qui dovremmo controllare se siamo in UEFI
-      swap_file: true
-    };
+  private async setupCalamares(destRoot: string) {
+    console.log("-> Setup Calamares (GUI Installer)...");
 
-    const filePath = path.join(dest, "krill.json");
-    await Deno.writeTextFile(filePath, JSON.stringify(krillConfig, null, 2));
-    console.log(`   ✅ Scritto: ${filePath}`);
+    // Percorsi Host
+    const calamaresEtc = "/etc/calamares";
+    const calamaresShare = "/usr/share/calamares";
+    
+    // Percorsi Destinazione Live
+    const destEtc = path.join(destRoot, "etc/calamares");
+    
+    // Se abbiamo una configurazione custom in /etc/calamares, la usiamo
+    if (await exists(calamaresEtc)) {
+        console.log("   Cloning host configuration...");
+        // Rimuoviamo la dest se esiste (per pulizia)
+        if (await exists(destEtc)) {
+            await Deno.remove(destEtc, { recursive: true });
+        }
+        
+        // Copia ricorsiva
+        // Nota: Deno.copy (std/fs) è deprecato in favore di copyDir o simili a seconda della versione std
+        // Usiamo il comando cp per robustezza sui permessi
+        await Utils.run("cp", ["-r", calamaresEtc, destEtc]);
+        
+        // Fix permessi specifici per Calamares (se servono)
+        // Solitamente deve essere leggibile da root
+    } else {
+        console.warn("⚠️  Nessuna configurazione Calamares trovata in /etc/calamares.");
+    }
+
+    // Qui potremmo iniettare modules/welcome.conf personalizzato con il nome della distro
+    // O configurare autologin sddm/lightdm (gestito di solito da PreFlight, ma a volte qui)
+  }
+
+  private async hasCalamares(): Promise<boolean> {
+    const check = await Utils.run("which", ["calamares"]);
+    return check.success;
   }
 }

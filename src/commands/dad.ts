@@ -1,40 +1,35 @@
+// src/commands/dad.ts
 import { Command } from "../deps.ts";
+import { Daddy } from "../classes/daddy.ts";
 import { Utils } from "../classes/utils.ts";
-import { Distro } from "../classes/distro.ts";
-import { PacmanFactory } from "../classes/pacman.ts"; // <--- Importiamo Pacman
 
 export const dadCommand = new Command()
+  .name("dad")
   .description("Daddy command: Configure and Setup")
-  .option("-c, --clean", "Clean package cache and temp files")
-  .option("-i, --install <pkg:string>", "Test installazione pacchetto") // Aggiungiamo per test
-  
+  .option("-d, --default", "Reset configuration to defaults")
+  .option("-c, --clean", "Clean repositories and temporary files")
+  .option("-v, --verbose", "Show verbose output")
   .action(async (options) => {
-    Utils.title("Eggs Dad - Configuration Manager");
-
-    // 1. Rilevamento (Necessario per istanziare Pacman)
-    const distro = await Distro.getInfo();
-    const pacman = PacmanFactory.get(distro); // <--- Creiamo l'istanza giusta
-
-    console.log(`🐧 Distro: ${distro.id}`);
-    console.log(`📦 Package Manager: ${pacman.id.toUpperCase()}`);
-
-    // TEST: Pulizia
-    if (options.clean) {
-        console.log("\n--> Cleaning System...");
-        // Non dobbiamo sapere se è apt clean o pacman -Scc
-        // Pacman lo sa.
-        await pacman.clean(); 
-        console.log("✅ Cache cleaned.");
-        return;
+    
+    // Controllo ROOT obbligatorio per scrivere in /etc
+    const uid = (await Utils.run("id", ["-u"])).out.trim();
+    if (uid !== "0") {
+        console.error("❌ Errore: 'dad' deve essere eseguito come ROOT per scrivere le configurazioni.");
+        console.error("   Usa: sudo eggs dad ...");
+        Deno.exit(1);
     }
 
-    // TEST: Installazione dummy
-    if (options.install) {
-        console.log(`\n--> Installing test package: ${options.install}`);
-        await pacman.install([options.install]);
-        return;
-    }
+    const dad = new Daddy();
 
-    console.log("\nReady via Pacman abstraction.");
+    if (options.default) {
+        await dad.reset(options.verbose);
+    } 
+    else if (options.clean) {
+        await dad.clean(options.verbose);
+    } 
+    else {
+        // Se non passa opzioni, mostriamo l'help
+        console.log("ℹ️  Specifica un'opzione: --default (-d) o --clean (-c)");
+        console.log("   Esempio: sudo eggs dad -d");
+    }
   });
-  

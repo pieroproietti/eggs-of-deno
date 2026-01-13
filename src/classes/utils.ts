@@ -12,73 +12,69 @@ export class Utils {
   
   /**
    * Esegue un comando shell.
-   * Supporta array di argomenti per sicurezza.
+   * @param stream Se true, mostra l'output a video in tempo reale (inherit).
    */
-  static async run(cmd: string, args: string[] = []): Promise<IRunResult> {
+  static async run(cmd: string, args: string[] = [], stream = false): Promise<IRunResult> {
     const command = new Deno.Command(cmd, {
       args: args,
-      stdout: "piped",
-      stderr: "piped",
+      stdout: stream ? "inherit" : "piped",
+      stderr: stream ? "inherit" : "piped",
     });
 
-    const { code, stdout, stderr } = await command.output();
-    const outStr = new TextDecoder().decode(stdout).trim();
-    const errStr = new TextDecoder().decode(stderr).trim();
+    // Usiamo spawn() per avere il controllo del processo figlio
+    const process = command.spawn();
 
-    return { 
-      success: code === 0, 
-      code, 
-      out: outStr, 
-      err: errStr 
-    };
+    if (stream) {
+      // CASO 1: STREAMING (Barra di avanzamento visibile)
+      // L'output va direttamente alla console. Noi aspettiamo solo che finisca.
+      const status = await process.status;
+      
+      return { 
+        success: status.success, 
+        code: status.code, 
+        out: "", // Non abbiamo catturato nulla, è andato tutto a video
+        err: "" 
+      };
+
+    } else {
+      // CASO 2: CATTURA (Silenzioso)
+      // process.output() aspetta la fine E raccoglie i buffer
+      const output = await process.output();
+      const outStr = new TextDecoder().decode(output.stdout).trim();
+      const errStr = new TextDecoder().decode(output.stderr).trim();
+
+      return { 
+        success: output.success, 
+        code: output.code, 
+        out: outStr, 
+        err: errStr 
+      };
+    }
   }
 
-  /**
-   * Stampa un titolo formattato
-   */
+  // ... (Tutti gli altri metodi title, getPrimaryUser, isSystemd, etc. restano uguali)
+  
   static title(text: string) {
     console.log(`\n=== ${text} ===\n`);
   }
 
-  /**
-   * Trova l'utente principale (non root)
-   * Cerca l'utente con UID 1000 (standard Linux)
-   */
   static async getPrimaryUser(): Promise<string> {
     try {
-      // Metodo 1: Leggi /etc/passwd
       const content = await Deno.readTextFile("/etc/passwd");
-      const lines = content.split("\n");
-      
-      for (const line of lines) {
+      for (const line of content.split("\n")) {
         const parts = line.split(":");
-        if (parts.length > 2) {
-          const uid = parseInt(parts[2]);
-          // UID 1000 è il primo utente su Debian/Ubuntu/Arch
-          if (uid === 1000) {
-            return parts[0];
-          }
+        if (parts.length > 2 && parseInt(parts[2]) === 1000) {
+          return parts[0];
         }
       }
-    } catch (e) {
-      console.warn("Impossibile leggere /etc/passwd");
-    }
-
-    // Fallback: usa variabile d'ambiente SUDO_USER o USER
+    } catch (e) {}
     return Deno.env.get("SUDO_USER") || Deno.env.get("USER") || "root";
   }
 
-  /**
-   * Controlla se il sistema usa Systemd
-   */
   static async isSystemd(): Promise<boolean> {
     return await exists("/run/systemd/system");
   }
-
-  /**
-   * Controlla se siamo su un sistema LIVE
-   * (Legge /proc/cmdline cercando 'boot=live' o simili)
-   */
+  
   static async isLive(): Promise<boolean> {
     try {
         const cmdline = await Deno.readTextFile("/proc/cmdline");
@@ -88,9 +84,6 @@ export class Utils {
     }
   }
 
-  /**
-   * Helper per sleep (usato in Ovary)
-   */
   static sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
