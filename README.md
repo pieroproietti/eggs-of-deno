@@ -2,7 +2,7 @@
 
 eggs-of-deno è un tentativo di riscrittura di [penguins-eggs](https://github.com/pieroproietti/penguins-eggs), al momento molto promettente ma nulla più.
 
-Il suo sviluppo è iniziato il giorno 11 gennaio 2026 a sera usando l'[AI gemini](https://gemini.google.com/app), ]antigravity](https://antigravity.google/) e l'autore di eggs stesso Piero Proietti.
+Il suo sviluppo è iniziato il giorno 11 gennaio 2026 a sera usando l'[AI gemini](https://gemini.google.com/app), [antigravity](https://antigravity.google/) e l'autore di eggs stesso Piero Proietti.
 
 eggs-of-deno è solo un esperimento allo stato attuale.
 
@@ -125,7 +125,7 @@ To keep your user data, configurations, and files:
 * **SourceForge ISOs:** [Download Examples](https://sourceforge.net/projects/eggs-of-deno/files/ISOS/)
 * **User Guide:** [Wardrobe User Guide](https://eggs-of-deno.net/docs/Tutorial/wardrobe-users-guide)
 
-# Commands
+# Commandi da implementare (presi dal README.md di penguins-eggs)
 <!-- commands -->
 * [`eggs adapt`](#eggs-adapt)
 * [`eggs autocomplete [SHELL]`](#eggs-autocomplete-shell)
