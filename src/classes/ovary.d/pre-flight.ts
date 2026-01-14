@@ -21,7 +21,7 @@ export class PreFlight {
     Utils.title("🛫 Pre-Flight Checks");
 
     // 1. Crea directory di lavoro
-    const workDir = path.join(Constants.NEST, ".mnt");
+    const workDir = path.join(Constants.NEST, "chroot");
     const isoDir = path.join(Constants.NEST, "iso");
     
     await ensureDir(workDir);

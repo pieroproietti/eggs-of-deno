@@ -58,7 +58,7 @@ export class Ovary {
 
     // 4. Incubator (Configurazione Calamares/Krill)
     const incubator = new Incubator(this.distro);
-    const calamaresPath = `${Constants.NEST}/.mnt/${Constants.CALAMARES_DIR}`;
+    const calamaresPath = `${Constants.NEST}/chroot/${Constants.CALAMARES_DIR}`;
     await incubator.configure(calamaresPath);
 
     // 5. SquashFS (Compressione)

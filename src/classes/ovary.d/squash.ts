@@ -19,10 +19,12 @@ export class Squash {
   async compress(options: any) {
     Utils.title("📦 SquashFS: Compressing Filesystem");
 
-    const source = path.join(Constants.NEST, ".mnt");
+    const source = path.join(Constants.NEST, "chroot");
     const destDir = path.join(Constants.NEST, "iso/live");
     const destFile = path.join(destDir, "filesystem.squashfs");
-    const scriptFile = path.join(Constants.NEST, "mksquashfs.sh"); 
+    const binDir = path.join(Constants.NEST, "bin");
+    await ensureDir(binDir);
+    const scriptFile = path.join(binDir, "mksquash.sh"); 
 
     await ensureDir(destDir);
 

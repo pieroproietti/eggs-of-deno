@@ -13,7 +13,7 @@ export class Incubator {
 
   /**
    * Configura gli installer (Calamares / Krill) nel sistema live
-   * @param destRoot La root del sistema montato (es. .mnt)
+   * @param destRoot La root del sistema montato (es. chroot)
    */
   async configure(destRoot: string) {
     Utils.title("🥚 Incubator: Configuring Installers");
@@ -36,10 +36,10 @@ export class Incubator {
   private async setupKrill(destRoot: string) {
     console.log("-> Setup Krill (CLI Installer)...");
     
-    // Destinazione: .mnt/etc/penguins-eggs.d/
+    // Destinazione: chroot/etc/penguins-eggs.d/
     const destConfigDir = path.join(destRoot, Constants.CONFIG_DIR); // Nota: CONFIG_DIR è assoluto, dobbiamo togliere il primo slash se usiamo join o gestire path relativi
     // Fix path: Constants.CONFIG_DIR è "/etc/penguins-eggs.d"
-    // destRoot è "/home/eggs/.mnt"
+    // destRoot è "/home/eggs/chroot"
     // join unisce correttamente gestendo le root
     const realDest = path.join(destRoot, "etc/penguins-eggs.d");
 
