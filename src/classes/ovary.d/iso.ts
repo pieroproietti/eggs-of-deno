@@ -22,7 +22,8 @@ export class Iso {
     // Nomi file sicuri
     const safeDistroId = this.distro.distribId.replaceAll(" ", "_").replaceAll("/", "-");
     const safeCodename = this.distro.codename.replaceAll(" ", "_");
-    const isoName = `${this.config.snapshot_prefix}-${safeDistroId}-${safeCodename}-${Deno.build.arch}.iso`;
+    // Hardcoded per user request
+    const isoName = "debian-eggs-live.iso";
     const isoPath = path.join(Constants.NEST, isoName);
 
     // Volume ID (Max 32 chars, Uppercase)

@@ -143,22 +143,17 @@ export class Initrd {
 
   /**
    * initrdDebian
-   * Uses chroot to run mkinitramfs
+   * Uses mkinitramfs directly (no chroot)
    */
   private static async debian(opts: InitrdOptions) {
-    Utils.warning(`creating initrd.img (Debian) inside CHROOT`);
+    Utils.warning(`creating initrd.img (Debian) using mkinitramfs`);
 
-    const chrootPath = opts.isoSource; 
-    const internalDest = `/tmp/initrd.img`;
-    const tempFileOnHost = path.join(chrootPath, internalDest);
-    
     const destFinal = path.join(opts.isoWork, "live", "initrd.img");
     const logFile = path.join(opts.isoWork, `${opts.snapshotPrefix}mkinitramfs.log.txt`);
 
     // Ensure destination exists
     await Deno.mkdir(path.dirname(destFinal), { recursive: true });
 
-    // const cmd = `chroot ${chrootPath} mkinitramfs -o ${internalDest} ${opts.kernel} > ${logFile} 2>&1`;
     const cmd = `mkinitramfs -o ${destFinal} ${opts.kernel}`;
     
     await sh(cmd, opts.echo);
@@ -166,8 +161,8 @@ export class Initrd {
     if (await exists(destFinal)) {
       console.log(`Initrd created at ${destFinal}`);
     } else {
-      Utils.error(`Error: Initrd not found at ${tempFileOnHost}. See log: ${logFile}`);
-      throw new Error("Initrd generation failed inside chroot.");
+      Utils.error(`Error: Initrd not found at ${destFinal}. See log: ${logFile}`);
+      throw new Error("Initrd generation failed.");
     }
   }
 
