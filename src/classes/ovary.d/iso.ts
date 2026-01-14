@@ -22,8 +22,33 @@ export class Iso {
     // Nomi file sicuri
     const safeDistroId = this.distro.distribId.replaceAll(" ", "_").replaceAll("/", "-");
     const safeCodename = this.distro.codename.replaceAll(" ", "_");
-    // Hardcoded per user request
-    const isoName = "debian-eggs-live.iso";
+    
+    // Costruzione nome ISO: egg-of-[familyId]-[codename/releaseId]-[hostname]-[date-time].iso
+    const family = this.distro.familyId || this.distro.id;
+    const version = (this.distro.codename && this.distro.codename !== "unknown") 
+      ? this.distro.codename 
+      : this.distro.releaseId;
+      
+    // safe version
+    const safeVersion = version.replaceAll(" ", "_").toLowerCase();
+    const safeFamily = family.replaceAll(" ", "_").toLowerCase();
+
+    // Recupero Hostname
+    let hostname = "unknown";
+    if (await exists("/etc/hostname")) {
+       hostname = (await Deno.readTextFile("/etc/hostname")).trim();
+    }
+    
+    // Recupero Data/Ora (YYYYMMDD_HHmm)
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const min = String(now.getMinutes()).padStart(2, "0");
+    const dateTime = `${yyyy}${mm}${dd}_${hh}${min}`;
+    
+    const isoName = `${this.config.snapshot_prefix}-${safeFamily}-${safeVersion}-${hostname}-${dateTime}.iso`;
     const mntDir = path.join(Constants.NEST, "mnt");
     await ensureDir(mntDir);
     const isoPath = path.join(mntDir, isoName);

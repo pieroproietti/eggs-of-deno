@@ -2,7 +2,7 @@
 // Aggiungi exists e ensureDir qui:
 import { Settings, IEggsConfig } from "./settings.ts";
 import { Utils } from "./utils.ts";
-import { Distro } from "./distro.ts";
+import { Distro, IDistroInfo } from "./distro.ts";
 import { Incubator } from "./incubator.ts";
 import { Constants } from "./constants.ts";
 
@@ -31,7 +31,7 @@ export interface IProduceOptions {
 
 export class Ovary {
   private config: IEggsConfig;
-  private distro: any;
+  private distro!: IDistroInfo;
 
   constructor(config: IEggsConfig) {
     this.config = config;
@@ -120,7 +120,7 @@ export class Ovary {
     // Chiediamo a Diversions dove sono i file
     // Nota: distro.id su Debian torna 'debian', su Ubuntu 'ubuntu'. 
     // Diversions.bootloaders gestisce la logica.
-    const familyId = this.distro.distribId.toLowerCase().includes("debian") ? "debian" : this.distro.distribId.toLowerCase();
+    const familyId = this.distro.familyId || this.distro.id;
     const sourceBase = Diversions.bootloaders(familyId);
 
     console.log(`-> Family: ${familyId}`);

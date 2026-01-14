@@ -3,6 +3,7 @@ import { exists } from "../deps.ts";
 
 export interface IDistroInfo {
   id: string;          // es: "debian", "arch", "manjaro"
+  familyId: string;    // es: "debian", "arch" (derivato da ID_LIKE o ID)
   releaseId: string;   // es: "11", "rolling"
   codename: string;    // es: "bullseye"
   distribId: string;   // ID univoco tipo "Debian" o "Ubuntu"
@@ -19,6 +20,7 @@ export class Distro {
     // Default valori vuoti
     const info: IDistroInfo = {
       id: "unknown",
+      familyId: "unknown",
       releaseId: "0",
       codename: "unknown",
       distribId: "Unknown Linux"
@@ -33,6 +35,8 @@ export class Distro {
       for (const line of lines) {
         if (line.startsWith("ID=")) {
           info.id = this.cleanValue(line);
+        } else if (line.startsWith("ID_LIKE=")) {
+          info.familyId = this.cleanValue(line).split(" ")[0]; // Prendi il primo se ce ne sono più di uno
         } else if (line.startsWith("VERSION_ID=")) {
           info.releaseId = this.cleanValue(line);
         } else if (line.startsWith("VERSION_CODENAME=")) {
@@ -40,6 +44,11 @@ export class Distro {
         } else if (line.startsWith("NAME=")) {
           info.distribId = this.cleanValue(line);
         }
+      }
+      
+      // Fallback per familyId se non c'è ID_LIKE (es: Debian puri)
+      if (info.familyId === "unknown" && info.id !== "unknown") {
+        info.familyId = info.id;
       }
     }
     
