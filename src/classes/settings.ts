@@ -8,6 +8,8 @@ export interface IEggsConfig {
   // AGGIUNGI QUESTI CAMPI MANCANTI:
   make_efi?: boolean;       // Supporto UEFI
   make_isohybrid?: boolean; // Supporto Hybrid Boot
+  user_opt?: string;        // Utente live default
+  user_opt_passwd?: string; // Password utente live
 }
 
 const DEFAULT_CONFIG: IEggsConfig = {
@@ -15,7 +17,9 @@ const DEFAULT_CONFIG: IEggsConfig = {
   snapshot_prefix: "egg-of",
   compression: "gzip",
   make_efi: true,       // Default true
-  make_isohybrid: true  // Default true
+  make_isohybrid: true,  // Default true
+  user_opt: "live",
+  user_opt_passwd: "evolution"
 };
 
 export class Settings {

@@ -75,7 +75,7 @@ export class Initrd {
     // eggs-deno seems to use standard names. Let's use initrd.img as generic output.
     const loopName = "initrd.img"; 
 
-    const pathConf = path.resolve(__dirname, "../../../mkinitfs/live.conf");
+    const pathConf = path.resolve(__dirname, "../../../initramfs/mkinitfs/live.conf");
     const log = `> ${opts.isoWork}${opts.snapshotPrefix}mkinitfs.log.txt 2>&1`;
     
     // Ensure destination exists
@@ -108,7 +108,7 @@ export class Initrd {
     }
 
     const restore = await exists(hookDest);
-    const pathConf = path.resolve(__dirname, `../../../mkinitcpio/${dirConf}`);
+    const pathConf = path.resolve(__dirname, `../../../initramfs/mkinitcpio/${dirConf}`);
     const fileConf = path.join(pathConf, 'live.conf');
     
     const hookSaved = `/tmp/${path.basename(hookSrc)}`;
@@ -176,7 +176,7 @@ export class Initrd {
     const destFinal = path.join(opts.isoWork, "live", "initrd.img");
     const log = `> ${opts.isoWork}${opts.snapshotPrefix}dracut.log.txt 2>&1`;
     
-    const confdirPath = path.resolve(__dirname, `../../../dracut/dracut.conf.d`);
+    const confdirPath = path.resolve(__dirname, `../../../initramfs/dracut/dracut.conf.d`);
     const confdir = `--confdir ${confdirPath}`;
     const kmoddir = `--kmoddir /lib/modules/${opts.kernel}`;
     

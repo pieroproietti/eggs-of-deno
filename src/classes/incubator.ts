@@ -2,6 +2,8 @@
 import { Utils } from "./utils.ts";
 import { Constants } from "./constants.ts";
 import { IDistroInfo } from "./distro.ts";
+import { Users } from "./users.ts";
+import { Settings } from "./settings.ts";
 import { path, ensureDir, exists, copyDir } from "../deps.ts";
 
 export class Incubator {
@@ -27,6 +29,41 @@ export class Incubator {
         await this.setupCalamares(destRoot);
     } else {
         console.log("⚠️  Calamares non trovato. La ISO avrà solo l'installer CLI (Krill).");
+    }
+
+    // 3. User Creation
+    await this.setupUser(destRoot);
+  }
+
+  /**
+   * Crea l'utente live
+   */
+  private async setupUser(destRoot: string) {
+    Utils.title("👤 Incubator: Creating Live User");
+    
+    // Carichiamo i settings (o li prendiamo se già passati, ma al momento Settings.load va bene)
+    const config = await Settings.load();
+    const user = config.user_opt || "live";
+    const password = config.user_opt_passwd || "evolution";
+
+    // Istanziamo la classe Users
+    // login, password, uid, gid, gecos, home, shell
+    // UID/GID 999 o 1000? Solitamente 1000 è il primo utente.
+    const liveUser = new Users(
+        user, 
+        password, 
+        "1000", 
+        "1000", 
+        "Live User", 
+        `/home/${user}`, 
+        "/bin/bash"
+    );
+
+    const success = await liveUser.create(destRoot);
+    if (success) {
+        console.log(`✅ Live user '${user}' created successfully.`);
+    } else {
+        console.error(`❌ Failed to create live user '${user}'.`);
     }
   }
 

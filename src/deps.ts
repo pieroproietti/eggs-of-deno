@@ -18,3 +18,6 @@ export {
   parse as parseYaml, 
   stringify as stringifyYaml 
 } from "https://deno.land/std@0.210.0/yaml/mod.ts";
+
+import bcrypt from "npm:bcryptjs@2.4.3";
+export { bcrypt };
